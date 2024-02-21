@@ -1,6 +1,6 @@
 # HyprTask-Qt • a Hyprland Client Selector
 
-[Hyprland](https://hyprland.org/) • [Wiki](https://wiki.hyprland.org/)
+[Hyprland](https://hyprland.org/) • [Wiki](https://wiki.hyprland.org/) • [GitHub](https://github.com/hyprwm/Hyprland)
 
 HyprTask-Qt interfaces with `hyprctl` to display and select window clients dynamically. It uses the JSON output to create a graphical user interface with a list of running Hyperland clients (windows/tiles).
 
