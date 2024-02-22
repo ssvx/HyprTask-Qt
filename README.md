@@ -64,5 +64,5 @@ Please pardon me for probable spaghetti code and awful style while i re-learn to
 
 ## Todo
 
-- Make it a single instance application that takes successive calls' arguments to navigate the clients list while suppressing multiple instances.
+- Make it a single instance application (simpleton?) that takes successive calls' arguments to navigate the clients list while suppressing multiple instances.
 - Include an option to *confirm and close* on *release of the Alt key* so Alt+Tab+Tab+Tab or Alt+Tab+Tab+Shift+Tab become feasible.
