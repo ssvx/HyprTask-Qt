@@ -53,6 +53,7 @@ Now place ./HyprTask wherever you like (mine sits at ~/F3/HyprTask cause it remi
 Here's my ~/.config/hypr/hyperland.conf snippet regarding HyprTask:
 ```
 # HyprTask
+windowrule=float,title:HyprTask
 windowrulev2 = size 600 300,title:HyprTask
 windowrulev2 = move 100%-700 100%-400,title:HyprTask
 bind = Alt, Tab, exec, ~/F3/HyprTask next
