@@ -15,7 +15,8 @@ It is primarily meant to extend the capabilities of Hyprland to function as floa
 - Switch focus to the selected client on confirmation and exit
 - Registers a QLocalServer to manage singleton stuff like
 - - limit instance to 1
-- - pass arguments to successive instances along to main instance
+- - pass arguments of successive instances along to main instance
+- - handle successive instance's arguments in singleton widget
 
 ## Command line arguments
 
