@@ -10,6 +10,9 @@
 #include <QJsonObject>
 #include <QJsonValue>
 #include <QListWidgetItem>
+#include <QLocalSocket>
+#include <QLocalServer>
+#include <QDataStream>
 
 #include <iostream>
 #include <sstream>
@@ -80,46 +83,52 @@ std::vector<Client> parseClients(const QString& jsonString) {
 
 class ClientWindow : public QWidget {
 	Q_OBJECT
-	
+
 public:
 	explicit ClientWindow(QWidget* parent = nullptr) : QWidget(parent) {
 		auto* layout = new QVBoxLayout(this);
 		listWidget = new QListWidget(this);
 		layout->addWidget(listWidget);
 		setLayout(layout);
-		
+
 		setStyleSheet("color: rgba(180, 255, 230, 0.8); background-color: rgba(0,90,160,0.5);");
-		
+
 		qApp->installEventFilter(this);
 		this->setWindowTitle("HyprTask");
 
 		QString clientsJson = execCommand("hyprctl clients -j");
 		clients = parseClients(clientsJson);
 
-		int i = 0;
-		for (const auto& client : clients) {
+		for (int i = 0; i < clients.size(); ++i) {
+			const auto& client = clients[i];
 			QString label = QString::fromStdString(std::to_string(client.focusHistoryID) + ": " + client.ClassName + " - " + client.title).trimmed();
-			if (label.isEmpty()) {
-				label = QString::fromStdString(client.address);
-			}
+			if (label.isEmpty()) label = QString::fromStdString(client.address);
 			auto* item = new QListWidgetItem(label);
 			// item->setData(Qt::UserRole, QString::fromStdString(client.address));
 			// wanna use clients.at(key) later, so changed to this...
-			item->setData(Qt::UserRole, i++);
+			item->setData(Qt::UserRole, i);
 			listWidget->addItem(item);
 		}
 
 		connect(listWidget, &QListWidget::itemActivated, this, &ClientWindow::onItemActivated);
 	}
 
+	void handleCommand(const QString& command) {
+		if (command == "next") {
+			Cycle(1);
+		} else if (command == "back") {
+			Cycle(-1);
+		}
+	}
+
 public:
-	bool Cycle (int Step) {
+	bool Cycle(int Step) {
 		int currentIndex = std::max(listWidget->currentRow(), 0);
 		int itemCount = listWidget->count();
 		if (verbose) std::cout << "cycle next from " << currentIndex << " of " << itemCount << std::endl;
 		currentIndex += Step;
 		if (itemCount <= currentIndex) currentIndex = 0;
-		if (currentIndex < 0) currentIndex = itemCount -1;
+		else if (currentIndex < 0) currentIndex = itemCount - 1;
 		if (verbose) std::cout << "setCurrentRow: " << currentIndex << std::endl;
 		listWidget->setCurrentItem(listWidget->item(currentIndex));
 		//execCommand("hyprctl dispatch focuswindow address:" + listWidget->item(currentIndex)->data(Qt::UserRole).toString());
@@ -127,32 +136,41 @@ public:
 	}
 
 protected:
-	bool eventFilter(QObject *obj, QEvent *event) {
-		if (event->type() == QEvent::KeyPress) {
-			if(obj == listWidget) {
-				QKeyEvent *keyEvent = static_cast<QKeyEvent *>(event);
-				
-				int currentIndex = listWidget->currentRow();
-				int itemCount = listWidget->count();
+	bool eventFilter(QObject *obj, QEvent *event) override {
+		
+		QKeyEvent *keyEvent = static_cast<QKeyEvent *>(event);
+		
+		int currentIndex = listWidget->currentRow();
+		int itemCount = listWidget->count();
+		
+		if (verbose) std::cout << "eventFilter type: " << event->type() << ", of key: " << keyEvent->key() << std::endl;
+		
+		if (event->type() == QEvent::KeyRelease) {
+			
+			if (keyEvent->key() == Qt::Key_Alt) {
+				if (verbose) std::cout << "Alt released on " << currentIndex << std::endl;
+				onItemActivated(listWidget->item(currentIndex));
+			}
+			
+		} else if (event->type() == QEvent::KeyPress) {
 
-				if (verbose) std::cout << "currentIndex " << currentIndex << ", itemCount " << itemCount << std::endl;
+			if (verbose) std::cout << "currentIndex " << currentIndex << ", itemCount " << itemCount << std::endl;
 
-				switch (keyEvent->key()) {
-					case Qt::Key_Escape: currentIndex = 0;
-					case Qt::Key_Alt:
-					case Qt::Key_Space:
-						if (verbose) std::cout << "Escape from " << currentIndex << "!" << std::endl;
-						onItemActivated(listWidget->item(currentIndex));
-						break;
-					case Qt::Key_Tab: return Cycle(1); break; // Tab: cycle forwards
-					case Qt::Key_Backtab: return Cycle(-1); break; // Shift+Tab: cycle backwards
-					case Qt::Key_Down: return Cycle(1); break; // Tab: cycle forwards
-					case Qt::Key_Up: return Cycle(-1); break; // Tab: cycle forwards
-					default:
-						if (verbose) std::cout << "default: nothing" << std::endl;
-						return QObject::eventFilter(obj, event);
-						break;
-				}
+			switch (keyEvent->key()) {
+				case Qt::Key_Escape: currentIndex = 0;
+				case Qt::Key_Alt:
+				case Qt::Key_Space:
+					if (verbose) std::cout << "Escape from " << currentIndex << "!" << std::endl;
+					onItemActivated(listWidget->item(currentIndex));
+					break;
+				case Qt::Key_Tab: return Cycle(1); break; // Tab: cycle forwards
+				case Qt::Key_Backtab: return Cycle(-1); break; // Shift+Tab: cycle backwards
+				case Qt::Key_Down: return Cycle(1); break; // Tab: cycle forwards
+				case Qt::Key_Up: return Cycle(-1); break; // Tab: cycle forwards
+				default:
+					if (verbose) std::cout << "default: nothing" << std::endl;
+					return QObject::eventFilter(obj, event);
+					break;
 			}
 		}
 
@@ -176,7 +194,7 @@ private slots:
 			execCommand("hyprctl dispatch workspace " + QString::fromStdString(Client.WorkspaceName));
 		}*/
 		execCommand("hyprctl dispatch bringactivetotop");
-		
+
 		QApplication::quit();
 	}
 
@@ -186,25 +204,77 @@ private:
 
 int main(int argc, char* argv[]) {
 	QApplication app(argc, argv);
-	
+
+	bool Master = true;
+
+	QDataStream Slave;
+
 	int CycleCue = 0;
-	
+
+	if (verbose) std::cout << "Application name: HyprTask" << std::endl;
+	QCoreApplication::setApplicationName("HyprTask");
+
+	// Singleton pattern implementation
+	QLocalSocket socket;
+	socket.connectToServer("HyprTaskApplicationID");
+	if (socket.waitForConnected(1000)) {
+		Master = false;
+		if (verbose) std::cout << "Socket connected" << std::endl;
+		// Send commands to already running instance
+		Slave.setDevice(&socket);
+	}
+
 	// Parse command-line arguments for verbose flag
 	for (int i = 1; i < argc; ++i) {
 		if (std::string(argv[i]) == "verbose") {
 			verbose = true;
 			std::cout << "Verbose mode enabled." << std::endl;
 		}
-		else if (std::string(argv[i]) == "next") CycleCue = 1;
-		else if (std::string(argv[i]) == "back") CycleCue = -1;
-		else std::cout << "Invalid argument: " << std::string(argv[i]) << std::endl;
+		else if (Master) {
+			if (std::string(argv[i]) == "next") CycleCue = 1;
+			else if (std::string(argv[i]) == "back") CycleCue = -1;
+			else std::cout << "Invalid argument: " << std::string(argv[i]) << std::endl;
+		} else {
+			if (verbose) std::cout << "Sending argv: " << argv[i] << std::endl;
+			Slave << QString::fromLatin1(argv[i]);
+		}
 	}
-	
+
+	if (!Master) {
+		socket.flush(); // Ensure data is written to the socket
+		socket.disconnectFromServer();
+		// Slave no longer useful. Kill in favor of first singleton.
+		return 0;
+	}
+
+	// Launch server on first singleton instance
+	QLocalServer::removeServer("HyprTaskApplicationID"); // Cleanup any previous instance listener
+	QLocalServer localServer; // Prepare local server for listening to new connections
+	if (!localServer.listen("HyprTaskApplicationID")) {
+		qCritical() << "Cannot start local server for singleton application.";
+		return -1;
+	}
+	if (verbose) std::cout << "Server launched" << std::endl;
+
 	ClientWindow window;
 	window.show();
-	
+
+	// Handle incoming connections
+	QObject::connect(&localServer, &QLocalServer::newConnection, [&]() {
+		QLocalSocket* clientSocket = localServer.nextPendingConnection();
+		QObject::connect(clientSocket, &QLocalSocket::readyRead, [&]() {
+			QDataStream in(clientSocket);
+			QString command;
+			while (!in.atEnd()) {
+				in >> command;
+				if (verbose) std::cout << "Received command: " << command.toStdString() << std::endl;
+				window.handleCommand(command);
+			}
+		});
+	});
+
 	if (CycleCue) window.Cycle(CycleCue);
-	
+
 	return app.exec();
 }
 

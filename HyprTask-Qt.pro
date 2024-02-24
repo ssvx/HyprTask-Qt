@@ -1,6 +1,6 @@
 TARGET = HyprTask
 CONFIG += c++17
-QT += core gui widgets
+QT += core gui widgets network
 SOURCES += src/main.cpp
 #HEADERS += include/ClientWindow.h
 # RESOURCES += resources/qrc/resources.qrc
