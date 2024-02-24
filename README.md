@@ -13,6 +13,9 @@ It is primarily meant to extend the capabilities of Hyprland to function as floa
 - Open a QtWidget with a simple list of Hyprland clients
 - Navigate through clients on a loop (next on last = go to first | back on first = go to last)
 - Switch focus to the selected client on confirmation and exit
+- Registers a QLocalServer to manage singleton stuff like
+- - limit instance to 1
+- - pass arguments to successive instances along to main instance
 
 ## Command line arguments
 
@@ -27,18 +30,21 @@ It is primarily meant to extend the capabilities of Hyprland to function as floa
 - Alt | Enter | Space: confirm (switch to selected client) and exit
 - Esc: return focus to previous clients and exit
 
-These are hard coded at the moment 🤮 but at least i *got* key binds. For now just change them inside the eventFilter() and recompile.
+Also: confirm&exit on release of Alt key. Small delay which may or may not be accidental to keep the widget open if Alt is released "fast fast" (💌 to [Nick Lucid](https://www.youtube.com/user/TheScienceAsylum)).
+
+Key binds are hard coded at the moment 🤮 but at least i *got* key binds.
+For now just change them inside the eventFilter() and recompile.
 
 ## Dependencies
 
-- qt6 (maybe qt5 works too)
-- qmake
+- qt6 (~~maybe qt5 works too~~ it doesn't)
+- qmake6
 
 ## Compiling / Installation
 
 - git clone https://github.com/ssvx/HyprTask-Qt.git
 - cd HyprTask-Qt
-- qmake
+- qmake6
 - make
 
 Now place ./HyprTask wherever you like (mine sits at ~/F3/HyprTask cause it reminds me of pressing RUN on a C64 in like 1988... don't ask) and create a bind on Alt+Tab to it. Also make sure it's executable `chmod u+x HyprTask`.
@@ -64,5 +70,6 @@ Please pardon me for probable spaghetti code and awful style while i re-learn to
 
 ## Todo
 
-- Make it a single instance application (simpleton?) that takes successive calls' arguments to navigate the clients list while suppressing multiple instances.
-- Include an option to *confirm and close* on *release of the Alt key* so Alt+Tab+Tab+Tab or Alt+Tab+Tab+Shift+Tab become feasible.
+- ~~Make it a single instance application (simpleton?) that takes successive calls' arguments to navigate the clients list while suppressing multiple instances.~~
+- ~~Include an option to *confirm and close* on *release of the Alt key* so Alt+Tab+Tab+Tab or Alt+Tab+Tab+Shift+Tab become feasible.~~
+- Add command line argument like *sticky* to disable automatic close on Alt release.
